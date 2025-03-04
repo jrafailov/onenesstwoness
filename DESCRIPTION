@@ -1,0 +1,11 @@
+Package: onenesstwoness
+Type: Package
+Title: Random forest classifier for BRCA1/BRCA2 deletion phenotype classification
+Version: 0.1.0
+Author: Zi-ning Choo
+Maintainer: Johnathan Rafailov/Kevin Hadi/Mark Zucker
+Description: This package provides a random forest classifier for BRCA1/BRCA2 deletion phenotype classification.
+License: MIT
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.3.2

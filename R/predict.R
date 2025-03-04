@@ -9,8 +9,11 @@
 #' @param homeology_stats Path to the homeology stats file
 #' @param hrdetect_results Path to the HRDetect results file
 #' @param libdir Path to the library directory
-#' @return
-#' @examples
+#' @return A list containing the following elements:
+#' \itemize{
+#' \item{expl_variables}{A data frame containing the explanatory variables}
+#' \item{ot_scores}{A data frame containing the Oneness and Twoness scores}
+#' }
 #' @export
 predict_hrd <- function(model, complex, homeology, homeology_stats, hrdetect_results, libdir) {
     if (is.null(complex) | is.null(homeology) | is.null(homeology_stats) | is.null(hrdetect_results) | is.null(model)) {
@@ -130,5 +133,7 @@ predict_hrd <- function(model, complex, homeology, homeology_stats, hrdetect_res
 
         message("Caching Oneness/Twoness results")
         saveRDS(outputs, "onenesstwoness_results.rds")
+
+        return(outputs)
     })
 }
