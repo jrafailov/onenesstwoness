@@ -2,8 +2,12 @@
 
 export(predict_hrd)
 import(gGnome)
+import(khtools)
+import(randomForest)
 importFrom(data.table,fread)
+importFrom(dplyr,mutate)
 importFrom(gUtils,gr.fix)
 importFrom(gUtils,grl.in)
 importFrom(gUtils,grl.pivot)
 importFrom(gUtils,parse.gr)
+importFrom(reshape2,dcast)
