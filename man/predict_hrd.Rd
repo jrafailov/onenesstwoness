@@ -11,7 +11,7 @@ predict_hrd(
   hrdetect_results,
   model = system.file("data/model", "stash.retrained.model.rds", package =
     "onenesstwoness"),
-  libdir
+  save = TRUE
 )
 }
 \arguments{
@@ -25,7 +25,7 @@ predict_hrd(
 
 \item{model}{Path to the model file}
 
-\item{libdir}{Path to the library directory}
+\item{save}{Logical indicating whether to save the results}
 }
 \value{
 A list containing the following elements:

@@ -8,7 +8,7 @@
 #' @param homeology Path to the homeology file
 #' @param homeology_stats Path to the homeology stats file
 #' @param hrdetect_results Path to the HRDetect results file
-#' @param libdir Path to the library directory
+#' @param save Logical indicating whether to save the results
 #' @return A list containing the following elements:
 #' \itemize{
 #' \item{expl_variables}{A data frame containing the explanatory variables}
@@ -22,8 +22,8 @@ predict_hrd <- function(complex,
     homeology,  
     homeology_stats, 
     hrdetect_results,
-    model = system.file("data/model", "stash.retrained.model.rds", package = "onenesstwoness"), 
-    libdir) {
+    model = system.file("data/model", "stash.retrained.model.rds", package = "onenesstwoness"),
+    save = TRUE) {
     
     if (is.null(complex) | is.null(homeology) | is.null(homeology_stats) | is.null(hrdetect_results) | is.null(model)) {
         stop("One or more required parameters are missing.")
@@ -110,9 +110,11 @@ predict_hrd <- function(complex,
             ot_scores = ot_scores
         )
 
-        message("Caching Oneness/Twoness results")
-        saveRDS(outputs, "onenesstwoness_results.rds")
-
+        if (save) {
+            message("Saving Oneness/Twoness results")
+            saveRDS(outputs, "onenesstwoness_results.rds")
+        }
+        
         return(outputs)
     })
 }
