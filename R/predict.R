@@ -15,13 +15,22 @@
 #' \item{ot_scores}{A data frame containing the Oneness and Twoness scores}
 #' }
 #' @export
-predict_hrd <- function(model, complex, homeology, homeology_stats, hrdetect_results, libdir) {
+#' @importFrom gUtils grl.in parse.gr gr.fix grl.pivot
+#' @import gGnome
+#' @importFrom data.table fread
+predict_hrd <- function(complex,
+    homeology,  
+    homeology_stats, 
+    hrdetect_results,
+    model = system.file("data/model", "stash.retrained.model.rds", package = "onenesstwoness"), 
+    libdir) {
+    
     if (is.null(complex) | is.null(homeology) | is.null(homeology_stats) | is.null(hrdetect_results) | is.null(model)) {
         stop("One or more required parameters are missing.")
     }
 
-    withr::with_package(c("skitools", "gGnome", "Flow", "dplyr", "bamUtils", "skidb", "naturalsort", "magrittr", "signature.tools.lib", "tidyr", "MASS", "khtools", "wesanderson"), {
-        model <- readRDS(model)
+    withr::with_package(c("skitools", "gGnome", "dplyr", "magrittr", "reshape", "khtools"), {
+
         gg <- readRDS(complex)
         gg <- gGnome::refresh(gg)
         all.events <- gg$meta$events
@@ -60,6 +69,7 @@ predict_hrd <- function(model, complex, homeology, homeology_stats, hrdetect_res
             bp1 <- gr.fix(bp1, bp2)
             bp2 <- gr.fix(bp2, bp1)
             jhom$jspan <- jJ(grl.pivot(GRangesList(bp1, bp2)))$span
+            jhom <- jhom %>% merge(gg$edges[type == "ALT"]$dt, by = "sedge.id", all= TRUE, suffixes = c(".x", "")) %>% as.data.table()
         }
         jhom_stats <- fread(homeology_stats)
         dels <- jhom[!is.na(jhom$del), colnames(jhom), drop = F, with = F]
@@ -83,46 +93,15 @@ predict_hrd <- function(model, complex, homeology, homeology_stats, hrdetect_res
         hrd <- setcols(hrd, c("SV3", "SV5"), c("RS3", "RS5"))
         expl_variables <- expl_variables %>% mutate(hrd)
 
-        if (!grepl("\\/", model)) {
-            mod_path <- paste0(libdir, "/", model)
-        } else {
-            mod_path <- model
+        mod <- readRDS(model)
+
+        expl_variables$DUP_1kb_100kb <- 0
+        if(NROW(jhom[class == "DUP-like"]) > 0) {
+            expl_variables$DUP_1kb_100kb <- 
+                jhom[class == "DUP-like"][jspan >= 1e3 & jspan <= 1e5, .N]
         }
-        message("Path to model:\n", mod_path)
-        mod <- readRDS(mod_path)
 
-        tmp <- expl_variables[, c("tib", "ihdel", "qrdup", "qrdel", "RS3", "RS5", "del.mh.prop", "hrd", "SNV8", "SNV3"), drop = F]
-
-        ### begin glmnet_utils.R
-        ### begin .Rprofile
-        options(stringsAsFactors = FALSE)
-        options(bitmapType = "cairo")
-        options(device = grDevices::png)
-        options(scipen = 0)
-
-        #######################
-        #######################
-        #######################
-
-        Sys.setenv(R_DATATABLE_NUM_THREADS = 1)
-        Sys.setenv(R_REMOTES_UPGRADE = "never")
-        Sys.setenv(R_REMOTES_NO_ERRORS_FROM_WARNINGS = "true")
-        Sys.setenv("GENCODE_DIR" = "~/DB/GENCODE")
-
-        Sys.setenv("BASH_FUNC_blip()" = "() { echo \"hoohah\"; }")
-
-        Sys.setenv(DEFAULT_GENOME = "~/DB/references/hg19/human_g1k_v37_decoy.chrom.sizes")
-        Sys.setenv(DEFAULT_BSGENOME = "~/DB/references/hg19/human_g1k_v37_decoy.chrom.sizes")
-
-        ww <- with
-        wn <- within
-
-        pp.res <- readRDS(paste0(libdir, "/", "robust.pp.res.rds"))
-
-        pred.res <- predict.pp(pp.res, tmp)
-
-        ot_scores <- fit_rforest(mod, pred.res$newdat)
-        ot_scores$SUM12 <- ot_scores$BRCA1 + ot_scores$BRCA2
+        ot_scores <- predict(mod, expl_variables, type = "prob")
 
         message("Predicting Oneness Twoness scores")
 

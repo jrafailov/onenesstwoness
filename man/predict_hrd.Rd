@@ -5,17 +5,16 @@
 \title{predict_hrd}
 \usage{
 predict_hrd(
-  model,
   complex,
   homeology,
   homeology_stats,
   hrdetect_results,
+  model = system.file("data/model", "stash.retrained.model.rds", package =
+    "onenesstwoness"),
   libdir
 )
 }
 \arguments{
-\item{model}{Path to the model file}
-
 \item{complex}{Path to the complex file}
 
 \item{homeology}{Path to the homeology file}
@@ -23,6 +22,8 @@ predict_hrd(
 \item{homeology_stats}{Path to the homeology stats file}
 
 \item{hrdetect_results}{Path to the HRDetect results file}
+
+\item{model}{Path to the model file}
 
 \item{libdir}{Path to the library directory}
 }
