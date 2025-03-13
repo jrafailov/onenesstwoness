@@ -1,3 +1,148 @@
+#' @title run_homeology
+#' @name run_homeology
+#' @description function to run homeology
+#' @param junctions Path to the junctions file
+#' @param width Width of the bins
+#' @param pad Number of bases of padding around each sequence position (bin) to use when computing homeology, i.e. we then will be comparing 1 + 2*pad -mer sequences for edit distance
+#' @param thresh String distance threshold for calling homeology in a bin
+#' @param stride Distance in bases between consecutive bins in which we will be measuring homeology
+#' @param genome Path to .2bit or ffTrack .rds containing genome sequence
+#' @param cores How many cores to use
+#' @param flip If flip = FALSE, homeology search for -/- and +/+ junctions is done between a sequence and its reverse complement
+#' @param bidirectional Adding padding on both sides of each breakpoint (TRUE) or only in the direction of the fused side (FALSE)
+#' @param annotate Annotate edges in gGraph object and save it in working directory
+#' @param savegMatrix Save gMatrix object of edit distances
+#' @export
+#' @importFrom GxG homeology.wrapper
+run_homeology <- function(junctions,
+    width,
+    pad,
+    thresh, 
+    stride,
+    genome,
+    cores,
+    flip,
+    bidirectional,
+    annotate,
+    savegMatrix){
+    
+    homeology.wrapper(junctions,
+        width = width,
+        pad = pad,
+        thresh = thresh,
+        stride = stride,
+        genome = genome,
+        cores = cores,
+        flip = flip,
+        bidirectional = bidirectional,
+        annotate = annotate,
+        savegMatrix = savegMatrix)
+
+}
+
+#' @title run_hrdetect
+#' @name run_hrdetect
+#' @description function to run HRDetect
+#' @param snv Path to the SNV file
+#' @param indel Path to the indel file if not present in SNV
+#' @param jabba Jabba rds file with $asegstats
+#' @param sv Path to the SV file (vcf/rds)
+#' @param mask Path to the mask file
+#' @param hets Path to the hets file
+#' @param genome enum of hg19/hg38/mm10/canFam3
+#' @param ref Path to the reference genome
+#' @param outdir Path to the output directory
+#' @export
+#' @importFrom signature.tools.lib HRDetect_pipeline
+run_hrdetect <- function(snv,
+    indel,
+    jabba,
+    sv,
+    mask,
+    hets,
+    genome,
+    ref,
+    outdir) {
+    
+    message("Running HRDetect")
+
+    setDTthreads(1)
+
+    system(paste('mkdir -p', outdir))
+
+    v <- VariantAnnotation::scanVcfHeader(snv)
+    sl <- seqlengths(v)
+
+    wg <- si2gr(sl[which(!grepl("GL|MT|M|NC", names(sl)))]) ## modified line
+
+    wg <- keepStandardChromosomes(wg, pruning.mode = "coarse")
+    wg <- sort(sortSeqlevels(wg), ignore.strand = TRUE)
+
+    gr.mask <- withv(mask, {
+        if (!is.null(x) && file.exists(x)) {
+            message("mask provided")
+            if (grepl("bed(.gz)?$", x))
+                import(x)
+            else if (grepl(".rds$", x))
+                readRDS(x)
+            else {
+                message("mask file in incorrect format")
+                message("no region filtering will be done")
+                wg[0]
+            }
+        } else {
+            wg[0]
+        }
+    })
+
+    if (!inherits(gr.mask, "GRanges")) {
+        warning("mask specified incorrectly\nproceeding without filtering")
+        gr.mask <- wg[0]
+    }
+
+    if (!identical(gr.mask, GRanges())) {
+        message("parsing mask file, and saving to regions file for subsetting VCF\n")
+    } else {
+        message("No mask regions provided, using whole SNV / InDel VCFs")
+    }
+
+    good.wg <- gr.setdiff(wg, gr.mask) %>% keepStandardChromosomes(pruning.mode = "coarse")
+
+    regions.file <- "./good_rfile.txt"
+    regions.bed <- "./good_rfile.bed"
+    mask.file <- "./mask_rfile.txt"
+
+    fwrite(gr2dt(good.wg)[, 1:3, with = FALSE], regions.file, sep = "\t", col.names = FALSE)
+
+    fwrite(setnames(gr2dt(good.wg)[, 1:3, with = FALSE][, start := start - 1],
+                c("#chrom", "chromStart", "chromEnd")), regions.bed, sep = "\t", col.names = TRUE)
+
+    message("Processing SNVs/indels")
+
+    snv.tmp <- process_snv(snv, regions.bed)
+    indel.tmp <- process_indel(indel, regions.bed, ref)
+    sv.tmp <- process_sv(jabba, sv)
+    cnv.tmp <- process_cnv(jabba, hets)
+
+    ########## run pipeline ##########
+    res <- signature.tools.lib::HRDetect_pipeline(SNV_vcf_files = snv.tmp,
+                                                Indels_vcf_files = indel.tmp,
+                                                SV_bedpe_files = sv.tmp,
+                                                CNV_tab_files = cnv.tmp,
+                                                genome.v = genome, SNV_signature_version = 'COSMICv3.2')
+
+    saveRDS(res, file.path(outdir, 'hrdetect_results.rds'))
+
+    if (NROW(res$hrdetect_output) > 0)
+        fwrite(res$hrdetect_output, file.path(outdir, 'hrdetect_output.txt'))
+    else {
+        message("HRDetect score was not calculated!!")
+        message("Inputs may not be available")
+    }
+}
+
+
+
 #' @title predict_hrd
 #' @name predict_hrd
 #'
