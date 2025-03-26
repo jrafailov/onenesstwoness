@@ -1,45 +1,3 @@
-#' @title run_homeology
-#' @name run_homeology
-#' @description function to run homeology
-#' @param junctions Path to the junctions file
-#' @param width Width of the bins
-#' @param pad Number of bases of padding around each sequence position (bin) to use when computing homeology, i.e. we then will be comparing 1 + 2*pad -mer sequences for edit distance
-#' @param thresh String distance threshold for calling homeology in a bin
-#' @param stride Distance in bases between consecutive bins in which we will be measuring homeology
-#' @param genome Path to .2bit or ffTrack .rds containing genome sequence
-#' @param cores How many cores to use
-#' @param flip If flip = FALSE, homeology search for -/- and +/+ junctions is done between a sequence and its reverse complement
-#' @param bidirectional Adding padding on both sides of each breakpoint (TRUE) or only in the direction of the fused side (FALSE)
-#' @param annotate Annotate edges in gGraph object and save it in working directory
-#' @param savegMatrix Save gMatrix object of edit distances
-#' @export
-#' @importFrom GxG homeology.wrapper
-run_homeology <- function(junctions,
-    width,
-    pad,
-    thresh, 
-    stride,
-    genome,
-    cores,
-    flip,
-    bidirectional,
-    annotate,
-    savegMatrix){
-    
-    homeology.wrapper(junctions,
-        width = width,
-        pad = pad,
-        thresh = thresh,
-        stride = stride,
-        genome = genome,
-        cores = cores,
-        flip = flip,
-        bidirectional = bidirectional,
-        annotate = annotate,
-        savegMatrix = savegMatrix)
-
-}
-
 #' @title run_hrdetect
 #' @name run_hrdetect
 #' @description function to run HRDetect
@@ -146,7 +104,7 @@ run_hrdetect <- function(snv,
 #' @title predict_hrd
 #' @name predict_hrd
 #'
-#' @description function to predict the HRD score
+#' @description function to predict the B1+2 score
 #'
 #' @param model Path to the model file
 #' @param complex Path to the complex file
@@ -165,11 +123,13 @@ run_hrdetect <- function(snv,
 #' @importFrom dplyr mutate
 #' @importFrom data.table fread
 #' @importFrom reshape2 dcast
+#' @importFrom GxG homeology.wrapper
 predict_hrd <- function(complex,
     homeology,  
     homeology_stats, 
     hrdetect_results,
     model = system.file("data/model", "stash.retrained.model.rds", package = "onenesstwoness"),
+    cores = 4,
     save = TRUE) {
     
     if (is.null(complex) | is.null(homeology) | is.null(homeology_stats) | is.null(hrdetect_results) | is.null(model)) {
@@ -206,8 +166,28 @@ predict_hrd <- function(complex,
         expl_variables$tib <- 0
     }
 
+    if(!is.null(homeology) & !is.null(homeology_stats)){
+        jhom <- fread(homeology)
+        jhom_stats <- fread(homeology_stats)
+    } else{
+        message("Running homeology")
+        hom.run <- homeology.wrapper(
+            gg,
+            width = 200,
+            pad = 20,
+            thresh = 1,
+            stride = 8,
+            savegMatrix = TRUE,
+            annotate = FALSE,
+            bidirectional = TRUE,
+            flip = FALSE,
+            cores = cores
+        )
+        jhom <- hom.run[[3]]
+        jhom_stats <- hom.run[[2]]
+    }
+
     message("Processing homeologous dels")
-    jhom <- fread(homeology)
     if (NROW(jhom) > 0) {
         bp1 <- parse.gr(jhom$bp1)
         bp2 <- parse.gr(jhom$bp2)
@@ -216,7 +196,6 @@ predict_hrd <- function(complex,
         jhom$jspan <- jJ(grl.pivot(GRangesList(bp1, bp2)))$span
         jhom <- jhom %>% merge(gg$edges[type == "ALT"]$dt, by = "sedge.id", all= TRUE, suffixes = c(".x", "")) %>% as.data.table()
     }
-    jhom_stats <- fread(homeology_stats)
     dels <- jhom[!is.na(jhom$del), colnames(jhom), drop = F, with = F]
     if (NROW(jhom_stats)) {
         dels <- merge.repl(
