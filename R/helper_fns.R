@@ -1,3 +1,6 @@
+#' @title bcfindex
+#' @name bcfindex
+#' @description function to index bcf/vcf file
 bcfindex <- function (vcf, force = TRUE) {
     if (!grepl(".[bv]cf(.gz)?$", vcf) & !grepl(".[bv]cf(.bgz)?$", vcf)) {
         stop("check if you have a valid bcf/vcf file")

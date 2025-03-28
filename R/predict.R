@@ -42,7 +42,7 @@ run_hrdetect <- function(snv,
             if (grepl("bed(.gz)?$", x))
                 import(x)
             else if (grepl(".rds$", x))
-                readRDS(x)
+                    readRDS(x)
             else {
                 message("mask file in incorrect format")
                 message("no region filtering will be done")
@@ -77,12 +77,12 @@ run_hrdetect <- function(snv,
 
     message("Processing SNVs/indels")
 
-    snv.tmp <- process_snv(snv, regions.bed)
-    indel.tmp <- process_indel(indel, regions.bed, ref)
-    sv.tmp <- process_sv(jabba, sv)
-    cnv.tmp <- process_cnv(jabba, hets)
+    snv.tmp <- hrdetect_process_snv(snv, regions.bed)
+    indel.tmp <- hrdetect_process_indel(indel, regions.bed, ref)
+    sv.tmp <- hrdetect_process_sv(jabba, sv)
+    cnv.tmp <- hrdetect_process_cnv(jabba, hets)
 
-    ########## run pipeline ##########
+    ######### run pipeline ##########
     res <- signature.tools.lib::HRDetect_pipeline(SNV_vcf_files = snv.tmp,
                                                 Indels_vcf_files = indel.tmp,
                                                 SV_bedpe_files = sv.tmp,
@@ -101,44 +101,57 @@ run_hrdetect <- function(snv,
 
 
 
-#' @title predict_hrd
-#' @name predict_hrd
+#' @title predict_B1_2
+#' @name predict_B1_2
 #'
 #' @description function to predict the B1+2 score
+#' requires Complex Events gGraph, Homeology, Homeology Stats, HRDetect results
+#' if homeology, homeology_stats are not provided, the function will run homeology
+#' if hrdetect_results is not provided, the function will run HRDetect
 #'
-#' @param model Path to the model file
-#' @param complex Path to the complex file
-#' @param homeology Path to the homeology file
-#' @param homeology_stats Path to the homeology stats file
-#' @param hrdetect_results Path to the HRDetect results file
+#' @param complex Path to the complex events gGraph (required)
+#' @param homeology Path to the homeology file (optional)
+#' @param homeology_stats Path to the homeology stats file (optional)
+#' @param hrdetect_results Path to the HRDetect results file (optional)
+#' @param model Path to the model file(default = system.file("data/model", "stash.retrained.model.rds", package = "onenesstwoness"))
+#' @param cores Number of cores to use (default = 4)
 #' @param save Logical indicating whether to save the results
 #' @return A list containing the following elements:
 #' \itemize{
 #' \item{expl_variables}{A data frame containing the explanatory variables}
 #' \item{ot_scores}{A data frame containing the Oneness and Twoness scores}
 #' }
-#' @export
 #' @importFrom gUtils grl.in parse.gr gr.fix grl.pivot
 #' @import khtools gGnome randomForest
 #' @importFrom dplyr mutate
 #' @importFrom data.table fread
 #' @importFrom reshape2 dcast
 #' @importFrom GxG homeology.wrapper
-predict_hrd <- function(complex,
-    homeology,  
-    homeology_stats, 
-    hrdetect_results,
+#' @export
+predict_B1_2 <- function(complex,
+    homeology = NULL,  
+    homeology_stats = NULL, 
+    hrdetect_results = NULL,
     model = system.file("data/model", "stash.retrained.model.rds", package = "onenesstwoness"),
+    outdir = "./",
     cores = 4,
     save = TRUE) {
     
-    if (is.null(complex) | is.null(homeology) | is.null(homeology_stats) | is.null(hrdetect_results) | is.null(model)) {
-        stop("One or more required parameters are missing.")
-    }
+    # TODO FIXME: fix the guardlrail for import read in 
+    # if (is.null(complex) | is.null(homeology) | is.null(homeology_stats) | is.null(hrdetect_results) | is.null(model)) {
+    #     stop("One or more required parameters are missing.")
+    # }
 
+    # if homeology, homeology_stats are not provided, the function will run homeology; complex necessary
+    # if hrdetect_results is not provided, the function will run HRDetect; complex necessary
+
+
+    message("Predicting Oneness/Twoness scores")
+    ########################################################################
+    #FIRST: read in complex events and pull reciprocal dups/dels/tib
     gg <- readRDS(complex)
     gg <- gGnome::refresh(gg)
-    all.events <- gg$meta$events
+    all.events <- base::get("events", gg$meta)
     ev.types <- c("qrppos", "qrpmin", "qrpmix", "qrdup", "qrdel", "tib")
     all.events$type <- factor(all.events$type, ev.types)
     expl_variables <- all.events %>% dcast("sample" ~ type, fun.aggregate = length, drop = FALSE)
@@ -165,14 +178,21 @@ predict_hrd <- function(complex,
         expl_variables$qrdel <- 0
         expl_variables$tib <- 0
     }
+    ######################################################################
 
+    ######################################################################
+    #SECOND: read in homeology output
+    ## if not provided, run homeology
+    ## pull out dels with hlen >= 10 and jspan > 1000
+
+    ## READ IN OR PROCESS
     if(!is.null(homeology) & !is.null(homeology_stats)){
         jhom <- fread(homeology)
         jhom_stats <- fread(homeology_stats)
     } else{
         message("Running homeology")
         hom.run <- homeology.wrapper(
-            gg,
+            complex,
             width = 200,
             pad = 20,
             thresh = 1,
@@ -181,6 +201,7 @@ predict_hrd <- function(complex,
             annotate = FALSE,
             bidirectional = TRUE,
             flip = FALSE,
+            genome = "~/DB/GATK/human_g1k_v37.fasta.2bit",
             cores = cores
         )
         jhom <- hom.run[[3]]
@@ -208,15 +229,39 @@ predict_hrd <- function(complex,
     }
     num_ihdels <- NROW(dels[dels$hlen >= 10 & dels$jspan > 1000, ])
     expl_variables$ihdel <- num_ihdels
+    ######################################################################
 
-    message("Processing HRDetect inputs: del.mh.prop, RS3, RS5, hrd-LOH score, SNV3, SNV8")
-    res <- readRDS(hrdetect_results)
+    ######################################################################
+    #THIRD: read in HRDetect output
+    ## pull out RS3, RS5, hrd-LOH score, SNV3, SNV8
+    ## if not present run HRDetect
+
+    # READ IN OR PROCESS
+    if(!is.null(hrdetect_results)){
+        message("Processing HRDetect inputs: del.mh.prop, RS3, RS5, hrd-LOH score, SNV3, SNV8")
+        res <- readRDS(hrdetect_results)
+    } else {
+        message("Running HRDetect")
+        run_hrdetect(snv = snv,
+            indel = indel,
+            jabba = jabba,
+            sv = sv,
+            mask = mask,
+            hets = hets,
+            genome = genome,
+            ref = ref,
+            outdir = outdir)
+        res <- readRDS(file.path(outdir, 'hrdetect_results.rds'))
+    }
+
     hrd <- res$data_matrix
-    if (!identical(type(hrd), "double")) hrd <- data.matrix(hrd)
+    if (!identical(typeof(hrd), "double")) hrd <- data.matrix(hrd)
     hrd <- as.data.table(hrd)
     hrd <- setcols(hrd, c("SV3", "SV5"), c("RS3", "RS5"))
     expl_variables <- expl_variables %>% mutate(hrd)
+    ######################################################################
 
+    ##########################  RUN MODEL ################################
     mod <- readRDS(model)
 
     expl_variables$DUP_1kb_100kb <- 0
@@ -225,20 +270,18 @@ predict_hrd <- function(complex,
             jhom[class == "DUP-like"][jspan >= 1e3 & jspan <= 1e5, .N]
     }
 
-    ot_scores <- predict(mod, expl_variables, type = "prob")
-
     message("Predicting Oneness Twoness scores")
+    ot_scores <- predict(mod, expl_variables, type = "prob")
+    ######################################################################
 
     outputs <- list(
         expl_variables = expl_variables,
         ot_scores = ot_scores
     )
-
     if (save) {
         message("Saving Oneness/Twoness results")
         saveRDS(outputs, "onenesstwoness_results.rds")
     }
 
-    return(outputs)
-     
+    return(outputs) 
 }
