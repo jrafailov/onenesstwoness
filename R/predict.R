@@ -138,7 +138,7 @@ predict_B1_2 <- function(complex,
     sv = NULL,
     mask = NULL,
     hets = NULL,
-    genome = "hg19",
+    genome = "~/DB/GATK/human_g1k_v37.fasta",
     ref = NULL,
     model = system.file("data/model", "stash.retrained.model.rds", package = "onenesstwoness"),
     outdir = "./",
@@ -209,7 +209,7 @@ predict_B1_2 <- function(complex,
             annotate = FALSE,
             bidirectional = TRUE,
             flip = FALSE,
-            genome = "~/DB/GATK/human_g1k_v37.fasta.2bit",
+            genome = genome,
             cores = cores
         )
         jhom <- hom.run[[3]]
