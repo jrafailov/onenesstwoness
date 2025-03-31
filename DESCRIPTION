@@ -7,6 +7,11 @@ Authors@R: c(
     person("Kevin", "Hadi", role = "aut", email = "khadi@nygenome.org"),
     person("Johnathan", "Rafailov", role = c("cre"), email = "jrafailov@nygenome.org"))
 Description: This package provides a random forest classifier for BRCA1/BRCA2 deletion phenotype classification.
+Depends:
+    R (>= 4.0.0),
+    GenomicRanges,
+    GxG,
+    randomForest
 License: MIT
 Encoding: UTF-8
 LazyData: true
