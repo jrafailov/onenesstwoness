@@ -15,7 +15,7 @@ predict_B1_2(
   sv = NULL,
   mask = NULL,
   hets = NULL,
-  genome = "hg19",
+  genome = "~/DB/GATK/human_g1k_v37.fasta",
   ref = NULL,
   model = system.file("data/model", "stash.retrained.model.rds", package =
     "onenesstwoness"),

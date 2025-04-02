@@ -140,7 +140,7 @@ predict_B1_2 <- function(complex,
     hets = NULL,
     genome = "~/DB/GATK/human_g1k_v37.fasta",
     ref = NULL,
-    model = system.file("data/model", "stash.retrained.model.rds", package = "onenesstwoness"),
+    model = system.file("inst/model", "stash.retrained.model.rds", package = "onenesstwoness"),
     outdir = "./",
     cores = 4,
     save = TRUE) {
