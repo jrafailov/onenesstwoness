@@ -113,6 +113,10 @@ run_hrdetect <- function(snv,
 #' @param homeology Path to the homeology file (optional)
 #' @param homeology_stats Path to the homeology stats file (optional)
 #' @param hrdetect_results Path to the HRDetect results file (optional)
+#' @param width Window size for homeology analysis (default = 200)
+#' @param pad Padding size for homeology analysis (default = 20) 
+#' @param thresh Threshold for homeology analysis (default = 1) 
+#' @param stride Stride size for homeology analysis (default = 8) 
 #' @param model Path to the model file(default = system.file("data/model", "stash.retrained.model.rds", package = "onenesstwoness"))
 #' @param cores Number of cores to use (default = 4)
 #' @param save Logical indicating whether to save the results
@@ -139,6 +143,10 @@ predict_B1_2 <- function(complex,
     mask = NULL,
     hets = NULL,
     genome = "~/DB/GATK/human_g1k_v37.fasta",
+    width = 200,
+    pad = 20,
+    thresh = 1,
+    stride = 8,
     ref = NULL,
     model = system.file("inst/model", "stash.retrained.model.rds", package = "onenesstwoness"),
     outdir = "./",
@@ -201,10 +209,10 @@ predict_B1_2 <- function(complex,
         message("Running homeology")
         hom.run <- homeology.wrapper(
             complex,
-            width = 200,
-            pad = 20,
-            thresh = 1,
-            stride = 8,
+            width = width,
+            pad = pad,
+            thresh = thresh,
+            stride = stride,
             savegMatrix = TRUE,
             annotate = FALSE,
             bidirectional = TRUE,
