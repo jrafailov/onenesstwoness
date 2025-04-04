@@ -4,7 +4,18 @@
 \alias{run_hrdetect}
 \title{run_hrdetect}
 \usage{
-run_hrdetect(snv, indel, jabba, sv, mask, hets, genome, ref, outdir)
+run_hrdetect(
+  snv,
+  indel,
+  jabba,
+  sv,
+  mask,
+  hets,
+  genome,
+  ref,
+  save = TRUE,
+  outdir
+)
 }
 \arguments{
 \item{snv}{Path to the SNV file}
@@ -22,6 +33,8 @@ run_hrdetect(snv, indel, jabba, sv, mask, hets, genome, ref, outdir)
 \item{genome}{enum of hg19/hg38/mm10/canFam3}
 
 \item{ref}{Path to the reference genome}
+
+\item{save}{Logical indicating whether to save the results}
 
 \item{outdir}{Path to the output directory}
 }

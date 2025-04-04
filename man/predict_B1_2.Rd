@@ -9,6 +9,7 @@ predict_B1_2(
   homeology = NULL,
   homeology_stats = NULL,
   hrdetect_results = NULL,
+  overwrite = TRUE,
   snv = NULL,
   indel = NULL,
   jabba = NULL,
@@ -16,9 +17,12 @@ predict_B1_2(
   mask = NULL,
   hets = NULL,
   genome = "~/DB/GATK/human_g1k_v37.fasta",
+  width = 200,
+  pad = 20,
+  thresh = 1,
+  stride = 8,
   ref = NULL,
-  model = system.file("inst/model", "stash.retrained.model.rds", package =
-    "onenesstwoness"),
+  model = system.file("model", "stash.retrained.model.rds", package = "onenesstwoness"),
   outdir = "./",
   cores = 4,
   save = TRUE
@@ -32,6 +36,18 @@ predict_B1_2(
 \item{homeology_stats}{Path to the homeology stats file (optional)}
 
 \item{hrdetect_results}{Path to the HRDetect results file (optional)}
+
+\item{overwrite}{Logical indicating whether to overwrite existing files (default = TRUE)}
+
+\item{snv}{Path to the SNV file (optional)}
+
+\item{width}{Window size for homeology analysis (default = 200)}
+
+\item{pad}{Padding size for homeology analysis (default = 20)}
+
+\item{thresh}{Threshold for homeology analysis (default = 1)}
+
+\item{stride}{Stride size for homeology analysis (default = 8)}
 
 \item{model}{Path to the model file(default = system.file("data/model", "stash.retrained.model.rds", package = "onenesstwoness"))}
 

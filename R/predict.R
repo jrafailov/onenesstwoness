@@ -10,6 +10,7 @@
 #' @param genome enum of hg19/hg38/mm10/canFam3
 #' @param ref Path to the reference genome
 #' @param outdir Path to the output directory
+#' @param save Logical indicating whether to save the results
 #' @export
 #' @importFrom signature.tools.lib HRDetect_pipeline
 run_hrdetect <- function(snv,
@@ -20,6 +21,7 @@ run_hrdetect <- function(snv,
     hets,
     genome,
     ref,
+    save = TRUE,
     outdir) {
     
     message("Running HRDetect")
@@ -88,15 +90,16 @@ run_hrdetect <- function(snv,
                                                 SV_bedpe_files = sv.tmp,
                                                 CNV_tab_files = cnv.tmp,
                                                 genome.v = genome, SNV_signature_version = 'COSMICv3.2')
-
-    saveRDS(res, file.path(outdir, 'hrdetect_results.rds'))
-
-    if (NROW(res$hrdetect_output) > 0)
+    if(save){
+        saveRDS(res, file.path(outdir, 'hrdetect_results.rds'))
+        if (NROW(res$hrdetect_output) > 0)
         fwrite(res$hrdetect_output, file.path(outdir, 'hrdetect_output.txt'))
-    else {
+    } else {
         message("HRDetect score was not calculated!!")
         message("Inputs may not be available")
     }
+    
+    return(res)
 }
 
 
@@ -113,6 +116,8 @@ run_hrdetect <- function(snv,
 #' @param homeology Path to the homeology file (optional)
 #' @param homeology_stats Path to the homeology stats file (optional)
 #' @param hrdetect_results Path to the HRDetect results file (optional)
+#' @param overwrite Logical indicating whether to overwrite existing files (default = TRUE)
+#' @param snv Path to the SNV file (optional)
 #' @param width Window size for homeology analysis (default = 200)
 #' @param pad Padding size for homeology analysis (default = 20) 
 #' @param thresh Threshold for homeology analysis (default = 1) 
@@ -136,6 +141,7 @@ predict_B1_2 <- function(complex,
     homeology = NULL,  
     homeology_stats = NULL, 
     hrdetect_results = NULL,
+    overwrite = TRUE,
     snv = NULL,
     indel = NULL,
     jabba = NULL,
@@ -148,7 +154,7 @@ predict_B1_2 <- function(complex,
     thresh = 1,
     stride = 8,
     ref = NULL,
-    model = system.file("inst/model", "stash.retrained.model.rds", package = "onenesstwoness"),
+    model = system.file("model", "stash.retrained.model.rds", package = "onenesstwoness"),
     outdir = "./",
     cores = 4,
     save = TRUE) {
@@ -213,12 +219,13 @@ predict_B1_2 <- function(complex,
             pad = pad,
             thresh = thresh,
             stride = stride,
-            savegMatrix = TRUE,
             annotate = FALSE,
+            save = save,
             bidirectional = TRUE,
             flip = FALSE,
             genome = genome,
-            cores = cores
+            cores = cores,
+            outdir = "./"
         )
         jhom <- hom.run[[3]]
         jhom_stats <- hom.run[[2]]
@@ -258,16 +265,16 @@ predict_B1_2 <- function(complex,
         res <- readRDS(hrdetect_results)
     } else {
         message("Running HRDetect")
-        run_hrdetect(snv = snv,
-            indel = indel,
-            jabba = jabba,
-            sv = sv,
-            mask = mask,
-            hets = hets,
-            genome = genome,
-            ref = ref,
-            outdir = outdir)
-        res <- readRDS(file.path(outdir, 'hrdetect_results.rds'))
+        res <- run_hrdetect(snv = snv,
+                indel = indel,
+                jabba = jabba,
+                sv = sv,
+                mask = mask,
+                hets = hets,
+                genome = genome,
+                ref = ref,
+                save = save,
+                outdir = outdir)
     }
 
     hrd <- res$data_matrix
@@ -280,8 +287,8 @@ predict_B1_2 <- function(complex,
     ##########################  RUN MODEL ################################
     mod <- readRDS(model)
 
-    expl_variables$DUP_1kb_100kb <- 0
     if(NROW(jhom[class == "DUP-like"]) > 0) {
+    expl_variables$DUP_1kb_100kb <- 0
         expl_variables$DUP_1kb_100kb <- 
             jhom[class == "DUP-like"][jspan >= 1e3 & jspan <= 1e5, .N]
     }
