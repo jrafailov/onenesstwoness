@@ -231,17 +231,27 @@ predict_B1_2 <- function(complex,
         jhom_stats <- hom.run[[2]]
     }
 
-    message("Processing homeologous dels")
-    if (NROW(jhom) > 0) {
+    
+    
+    expl_variables$DUP_1kb_100kb <- 0
+    expl_variables$ihdel = 0
+    is_jhom_nonempty = NROW(jhom) > 0
+    is_jhomstats_nonempty = NROW(jhom_stats) > 0
+    
+    if (is_jhom_nonempty) {
         bp1 <- parse.gr(jhom$bp1)
         bp2 <- parse.gr(jhom$bp2)
         bp1 <- gr.fix(bp1, bp2)
         bp2 <- gr.fix(bp2, bp1)
         jhom$jspan <- jJ(grl.pivot(GRangesList(bp1, bp2)))$span
         jhom <- jhom %>% merge(gg$edges[type == "ALT"]$dt, by = "sedge.id", all= TRUE, suffixes = c(".x", "")) %>% as.data.table()
+
+        expl_variables$DUP_1kb_100kb <- 
+            jhom[class == "DUP-like"][jspan >= 1e3 & jspan <= 1e5, .N]
     }
-    dels <- jhom[!is.na(jhom$del), colnames(jhom), drop = F, with = F]
-    if (NROW(jhom_stats)) {
+    message("Processing homeologous dels")
+    if (is_jhomstats_nonempty) {
+        dels <- jhom[!is.na(jhom$del), colnames(jhom), drop = F, with = F]
         dels <- merge.repl(
             dels,
             jhom_stats[, .(
@@ -249,9 +259,21 @@ predict_B1_2 <- function(complex,
             ), by = edge.id],
             by = "edge.id"
         )
+        num_ihdels <- NROW(dels[dels$hlen >= 10 & dels$jspan > 1000, ])
+        expl_variables$ihdel <- num_ihdels
     }
-    num_ihdels <- NROW(dels[dels$hlen >= 10 & dels$jspan > 1000, ])
-    expl_variables$ihdel <- num_ihdels
+    # dels <- jhom[!is.na(jhom$del), colnames(jhom), drop = F, with = F]
+    # if (is_jhomstats_nonempty) {
+    #     dels <- merge.repl(
+    #         dels,
+    #         jhom_stats[, .(
+    #             hlen = max(max(ifelse(na2false(.SD$r > 0.9), .SD$minpx, 0L)), 0L)
+    #         ), by = edge.id],
+    #         by = "edge.id"
+    #     )
+    # }
+    # num_ihdels <- NROW(dels[dels$hlen >= 10 & dels$jspan > 1000, ])
+    # expl_variables$ihdel <- num_ihdels
     ######################################################################
 
     ######################################################################
@@ -286,12 +308,14 @@ predict_B1_2 <- function(complex,
 
     ##########################  RUN MODEL ################################
     mod <- readRDS(model)
-
-    if(NROW(jhom[class == "DUP-like"]) > 0) {
-    expl_variables$DUP_1kb_100kb <- 0
-        expl_variables$DUP_1kb_100kb <- 
-            jhom[class == "DUP-like"][jspan >= 1e3 & jspan <= 1e5, .N]
-    }
+    
+    # expl_variables$DUP_1kb_100kb <- 0
+    # classes_sv = base::get0("class", as.environment(jhom), ifnotfound = NULL)
+    # if (NROW(jhom[class == "DUP-like"]) > 0) {    
+    # if (is_jhom_nonempty && is_jhomstats_nonempty && !is.null(classes_sv) && any(classes_sv == "DUP-like")) {
+    #     expl_variables$DUP_1kb_100kb <- 
+    #         jhom[class == "DUP-like"][jspan >= 1e3 & jspan <= 1e5, .N]
+    # }
 
     message("Predicting Oneness Twoness scores")
     ot_scores <- predict(mod, expl_variables, type = "prob")
