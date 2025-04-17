@@ -54,7 +54,7 @@ hrdetect_process_snv <- function(snv, regions.bed) {
 #' @title hrdetect_process_indel
 #' @name hrdetect_process_indel
 #' @description function to process indel file
-hrdetect_process_indel <- function(indel, regions.bed, ref) {
+hrdetect_process_indel <- function(indel, regions.bed, ref, fasta) {
     if (is.null(indel) || !file.exists(indel) || identical(indel, "/dev/null")) {
         message("no proper indel file provided... assuming indels are in snv vcf file")
         indel = snv
@@ -69,7 +69,7 @@ hrdetect_process_indel <- function(indel, regions.bed, ref) {
 
         message("Processing indel input")
         if (grepl("gz$", indel)) {
-            cmd = sprintf("{ vcftools --gzvcf %s --keep-only-indels --remove-filtered-all --recode --stdout | awk '{ if ($0 ~ /##contig=<ID=chr/) { gsub(/##contig=<ID=chr/, \"##contig=<ID=\"); print } else if ($0 !~ /^#/) { gsub(/^chr/, \"\"); print } else { print } }' | bedtools intersect -a stdin -b ./good_rfile.bed -header | vcf-sort -c | bcftools view -S ^./excls.txt | bcftools view -v indels | bcftools norm -Ov -m-any | bcftools norm -f human_g1k_v37_decoy.fasta --check-ref s | bgzip -c; } > ./indel.vcf.bgz", indel)
+            cmd = sprintf("{ vcftools --gzvcf %s --keep-only-indels --remove-filtered-all --recode --stdout | awk '{ if ($0 ~ /##contig=<ID=chr/) { gsub(/##contig=<ID=chr/, \"##contig=<ID=\"); print } else if ($0 !~ /^#/) { gsub(/^chr/, \"\"); print } else { print } }' | bedtools intersect -a stdin -b ./good_rfile.bed -header | vcf-sort -c | bcftools view -S ^./excls.txt | bcftools view -v indels | bcftools norm -Ov -m-any | bcftools norm -f %s --check-ref s | bgzip -c; } > ./indel.vcf.bgz", indel, fasta)
         } else {
             cmd = sprintf("{ vcftools --vcf %s --keep-only-indels --remove-filtered-all --recode --stdout | awk '{ if ($0 ~ /##contig=<ID=chr/) { gsub(/##contig=<ID=chr/, \"##contig=<ID=\"); print } else if ($0 !~ /^#/) { gsub(/^chr/, \"\"); print } else { print } }' | bedtools intersect -a stdin -b %s -header | vcf-sort -c | bcftools view -v indels | bcftools norm -Ov -m-any | bcftools norm -f %s --check-ref s | bgzip -c; } > %s", indel, regions.bed, ref, indel.tmp)
         }
@@ -103,7 +103,7 @@ hrdetect_process_indel <- function(indel, regions.bed, ref) {
             rowRanges(indel_fix)[del] = gr.resize(rr[del],
                                                 width(rr[del]) + 1,
                                                 pad = FALSE, fix = "end")
-            delref = unname(get_seq(TwoBitFile("~/DB/GATK/human_g1k_v37.fasta.2bit"),
+            delref = unname(get_seq(Rsamtools::FaFile(fasta),
                                     rowRanges(indel_fix)[del]))
             delalt = unname(split(subseq(delref, 1, 1), seq_along(delref)))
             VariantAnnotation::alt(indel_fix)[del] = delalt
@@ -125,6 +125,7 @@ hrdetect_process_indel <- function(indel, regions.bed, ref) {
     return(indel.tmp)
 }
 
+#' @importFrom dplyr select left_join
 #' @title hrdetect_process_sv
 #' @name hrdetect_process_sv
 #' @description function to process SV file
@@ -160,7 +161,7 @@ hrdetect_process_sv <- function(jabba, sv) {
         if (length(altgrl)) {
             bdpe <- grl2bedpe(sort.GRangesList(gr.noval(altgrl), ignore.strand = TRUE))
             these.cols <- colnames(bdpe)
-            fwrite(select(left_join(bdpe, strand.conv), !!these.cols, everything()) %>%
+            fwrite(dplyr::select(dplyr::left_join(bdpe, strand.conv), !!these.cols, everything()) %>%
                 mutate(strand1 = new.strand1,
                         strand2 = new.strand2,
                         new.strand1 = NULL,
@@ -181,12 +182,17 @@ hrdetect_process_sv <- function(jabba, sv) {
     return(sv.tmp)
 }
 
+#' @importFrom dplyr rename_at vars
+#' @import MatrixGenerics
 #' @title hrdetect_process_cnv
 #' @name hrdetect_process_cnv
 #' @description function to process CNV file
 hrdetect_process_cnv <- function(jabba, hets) {
     if (file.exists(jabba) && !identical(jabba, "/dev/null")) {
         jabd.simple <- readRDS(jabba)
+        if(inherits(jabd.simple, "gGraph")) {
+            jabd.simple <- gg2jab(jabd.simple)
+        }
         jabba.has.hets <- all(c("asegstats", "aadj", "agtrack") %in% names(jabd.simple))
         hets.exist <- !file.not.exists(hets)
 
@@ -240,15 +246,15 @@ hrdetect_process_cnv <- function(jabba, hets) {
                     }
                 }
             } else {
-                hets.gr <- readRDS("hets.gr.rds")
+                hets.gr <- readRDS(paste(dirname(jabba), "hets.gr.rds", sep = "/"))
             }
             if (!all(c('asegstats', 'aadj', 'agtrack') %in% names(jabd.simple))) {
                 jaba <- tryCatch(JaBbA:::jabba.alleles(jabd.simple, hets.gr, verbose = TRUE, uncoupled = TRUE)[c('asegstats', 'aadj', 'agtrack')], error = function(e) NULL)
                 if (!is.null(jaba)) {
                     jabd.simple <- c(jabd.simple, jaba)
                 } else {
-                    if (sum(mcols(jabd.simple$junctions)$cn > 0, na.rm = T) == 0) {
                         message("could not estimate allelic CN due to no aberrant edges in graph")
+                    if (sum(mcols(jabd.simple$junctions)$cn > 0, na.rm = T) == 0) {
                     } else {
                         message("could not estimate allelic CN... check inputs")
                     }
@@ -263,7 +269,7 @@ hrdetect_process_cnv <- function(jabba, hets) {
                                 sortSeqlevels() %>%
                                 sort(ignore.strand = TRUE) %>%
                                 gr.nochr)[!duplicated(paste(seqnames, start, end, width, strand, type))]
-        cnv <- setDT(rename_at(dcast.data.table(cnv, seqnames + start + end + width + strand ~ type, value.var = "cn"), vars(high, low), ~paste0(., "_cn")))
+        cnv <- setDT(rename_at(dcast.data.table(cnv, seqnames + start + end + width + strand ~ type, value.var = "cn"), dplyr::vars(high, low), ~paste0(., "_cn")))
         cnv <- cnv[, .(seg_no = seq_len(.N),
                         Chromosome = seqnames,
                         chromStart = start,
@@ -287,4 +293,61 @@ hrdetect_process_cnv <- function(jabba, hets) {
         names(cnv.tmp) <- "sample_1"
     }
     return(cnv.tmp)
+}
+
+file.not.exists = function (x, nullfile = "/dev/null", bad = c(NA, "NA", "NULL", 
+    "")) {
+    isnul = (is.null(x))
+    if(isnul) {
+        return(TRUE)
+    }
+    isbadfile = (x %in% bad | x == nullfile)
+    isgoodfile = which(!isbadfile)
+    isbadfile[isgoodfile] = !file.exists(as.character(x[isgoodfile]))
+    isnolength = len(x) == 0
+    return(isnul | isnolength | isbadfile)
+}
+
+gg2jab = function (gg, purity = NA, ploidy = NA) {
+    if (!inherits(gg, "gGraph")) {
+        stop("Must supply gGraph")
+    }
+    ab.edges = array(NA, dim = c(length(gg$junctions[type == 
+        "ALT"]), 3, 2), dimnames = list(NULL, c("from", "to", 
+        "edge.ix"), c("+", "-")))
+    ab.edges[, 1, 1] = gg$sedgesdt[sedge.id > 0][match(gg$junctions[type == 
+        "ALT"]$dt$edge.id, edge.id), from]
+    ab.edges[, 2, 1] = gg$sedgesdt[sedge.id > 0][match(gg$junctions[type == 
+        "ALT"]$dt$edge.id, edge.id), to]
+    ab.edges[, 3, 1] = gg$junctions[type == "ALT"]$dt$edge.id
+    ab.edges[, 1, 2] = gg$sedgesdt[sedge.id < 0][match(gg$junctions[type == 
+        "ALT"]$dt$edge.id, edge.id), from]
+    ab.edges[, 2, 2] = gg$sedgesdt[sedge.id < 0][match(gg$junctions[type == 
+        "ALT"]$dt$edge.id, edge.id), to]
+    ab.edges[, 3, 2] = gg$junctions[type == "ALT"]$dt$edge.id
+    adj.dims = dim(gg$adj)
+    if (!is.null(gg$sedgesdt$cn)) {
+        adj = Matrix::sparseMatrix(i = gg$sedgesdt[, from], j = gg$sedgesdt[, 
+            to], x = gg$sedgesdt[, cn], dims = adj.dims)
+    }
+    else {
+        adj = Matrix::sparseMatrix(i = gg$sedgesdt[, from], j = gg$sedgesdt[, 
+            to], x = 1, dims = adj.dims)
+    }
+    res = list(segstats = gg$gr, adj = adj, junctions = gg$junctions[type == 
+        "ALT"]$grl, ab.edges = ab.edges)
+    if (!is.na(ploidy)) {
+        res$ploidy = ploidy
+    }
+    else {
+        res$ploidy = weighted.mean(gg$nodes$dt[, cn], gg$nodes$dt[, 
+            width], na.rm = TRUE)
+    }
+    if (!is.na(purity)) {
+        res$purity = purity
+    }
+    else {
+        res$purity = 1
+    }
+    return(res)
 }

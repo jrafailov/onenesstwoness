@@ -41,6 +41,23 @@ a <- predict_B1_2(
   save = F
 )
 
+devtools::load_all("~/git/onenesstwoness-dev")
+
+Flow::Task("~/tasks/")
+
+outputs <- outputs[14]
+sv <- outputs$gridss_somatic
+hets <- outputs$hets_snv_cn_wgs
+snv <- outputs$sage_somatic_vcf
+jabba <- outputs$jabba_simple
+
+run_hrdetect(snv = snv,
+jabba = jabba,
+sv = sv,
+hets = hets,
+mask = ,
+genome = "hg19",
+ref = "~/DB/references/hg19/human_g1k_v37_decoy.fasta")
 
 
 

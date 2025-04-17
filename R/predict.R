@@ -80,7 +80,7 @@ run_hrdetect <- function(snv,
     message("Processing SNVs/indels")
 
     snv.tmp <- hrdetect_process_snv(snv, regions.bed)
-    indel.tmp <- hrdetect_process_indel(indel, regions.bed, ref)
+    indel.tmp <- hrdetect_process_indel(indel, regions.bed, ref, fasta = genome)
     sv.tmp <- hrdetect_process_sv(jabba, sv)
     cnv.tmp <- hrdetect_process_cnv(jabba, hets)
 

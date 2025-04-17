@@ -4,7 +4,7 @@
 \alias{hrdetect_process_indel}
 \title{hrdetect_process_indel}
 \usage{
-hrdetect_process_indel(indel, regions.bed, ref)
+hrdetect_process_indel(indel, regions.bed, ref, fasta)
 }
 \description{
 function to process indel file

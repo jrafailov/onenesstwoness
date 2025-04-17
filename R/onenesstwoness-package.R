@@ -21,5 +21,7 @@
 #' @import data.table
 #' @import gGnome
 #' @importFrom magrittr `%>%`
+#' @import VariantAnnotation
+#' @importFrom Rsamtools TabixFile
 registerS3method("merge", "data.table", data.table::merge.data.table)
  "_PACKAGE"
