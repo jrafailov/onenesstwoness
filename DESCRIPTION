@@ -12,6 +12,10 @@ Depends:
     GenomicRanges,
     GxG,
     randomForest
+Imports:
+    signature.tools.lib
+Remotes:
+    github::Nik-Zainal-Group/signature.tools.lib
 License: MIT
 Encoding: UTF-8
 LazyData: true
