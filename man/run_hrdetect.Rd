@@ -6,33 +6,33 @@
 \usage{
 run_hrdetect(
   snv,
-  indel,
-  jabba,
-  sv,
-  mask,
   hets,
+  jabba = "/dev/null",
+  indel = snv,
+  sv = "/dev/null",
+  mask = system.file("extdata", "hg19_mask.rds", package = "onenesstwoness"),
   genome,
-  ref,
+  ref = "hg19",
   save = TRUE,
-  outdir
+  outdir = "./"
 )
 }
 \arguments{
 \item{snv}{Path to the SNV file}
 
-\item{indel}{Path to the indel file if not present in SNV}
+\item{hets}{Path to the hets file}
 
 \item{jabba}{Jabba rds file with $asegstats}
+
+\item{indel}{Path to the indel file if not present in SNV}
 
 \item{sv}{Path to the SV file (vcf/rds)}
 
 \item{mask}{Path to the mask file}
 
-\item{hets}{Path to the hets file}
+\item{genome}{Path to the reference genome (fasta)}
 
-\item{genome}{enum of hg19/hg38/mm10/canFam3}
-
-\item{ref}{Path to the reference genome}
+\item{ref}{enum of hg19/hg38/mm10/canFam3}
 
 \item{save}{Logical indicating whether to save the results}
 

@@ -6,40 +6,37 @@
 \usage{
 predict_B1_2(
   complex,
+  snv = NULL,
+  hets = NULL,
   homeology = NULL,
   homeology_stats = NULL,
   hrdetect_results = NULL,
-  overwrite = TRUE,
-  snv = NULL,
-  indel = NULL,
-  jabba = NULL,
+  indel = snv,
   sv = NULL,
-  mask = NULL,
-  hets = NULL,
+  mask = system.file("extdata", "hg19_mask.rds", package = "onenesstwoness"),
   genome = "~/DB/GATK/human_g1k_v37.fasta",
   width = 200,
   pad = 20,
   thresh = 1,
   stride = 8,
-  ref = NULL,
+  ref = "hg19",
   model = system.file("model", "stash.retrained.model.rds", package = "onenesstwoness"),
   outdir = "./",
   cores = 4,
+  overwrite = TRUE,
   save = TRUE
 )
 }
 \arguments{
 \item{complex}{Path to the complex events gGraph (required)}
 
+\item{snv}{Path to the SNV file (optional)}
+
 \item{homeology}{Path to the homeology file (optional)}
 
 \item{homeology_stats}{Path to the homeology stats file (optional)}
 
 \item{hrdetect_results}{Path to the HRDetect results file (optional)}
-
-\item{overwrite}{Logical indicating whether to overwrite existing files (default = TRUE)}
-
-\item{snv}{Path to the SNV file (optional)}
 
 \item{width}{Window size for homeology analysis (default = 200)}
 
@@ -52,6 +49,8 @@ predict_B1_2(
 \item{model}{Path to the model file(default = system.file("data/model", "stash.retrained.model.rds", package = "onenesstwoness"))}
 
 \item{cores}{Number of cores to use (default = 4)}
+
+\item{overwrite}{Logical indicating whether to overwrite existing files (default = TRUE)}
 
 \item{save}{Logical indicating whether to save the results}
 }

@@ -30,8 +30,7 @@ hrdetect_process_snv <- function(snv, regions.bed) {
         } else {
             cmd = sprintf("{ vcftools --vcf %s --remove-indels --remove-filtered-all --recode --stdout | awk '{ if ($0 ~ /##contig=<ID=chr/) { gsub(/##contig=<ID=chr/, \"##contig=<ID=\"); print } else if ($0 !~ /^#/) { gsub(/^chr/, \"\"); print } else { print } }' | bedtools intersect -a stdin -b %s -header | vcf-sort -c | bcftools view -v snps | bcftools norm -Oz -m-any; } > %s", snv, normalizePath(regions.bed), snv.tmp)
         }
-        print(cmd)
-
+        message("Performing VCFtools and bcftools operations...")
         out = system(cmd)
         if (out != 0)  {
             message("trying snv processing again")
@@ -74,8 +73,7 @@ hrdetect_process_indel <- function(indel, regions.bed, ref, fasta) {
             cmd = sprintf("{ vcftools --vcf %s --keep-only-indels --remove-filtered-all --recode --stdout | awk '{ if ($0 ~ /##contig=<ID=chr/) { gsub(/##contig=<ID=chr/, \"##contig=<ID=\"); print } else if ($0 !~ /^#/) { gsub(/^chr/, \"\"); print } else { print } }' | bedtools intersect -a stdin -b %s -header | vcf-sort -c | bcftools view -v indels | bcftools norm -Ov -m-any | bcftools norm -f %s --check-ref s | bgzip -c; } > %s", indel, regions.bed, ref, indel.tmp)
         }
 
-        print(cmd)
-
+        message("Performing VCFtools and bcftools operations...")
         system(cmd)
 
         bcfindex(indel.tmp)
@@ -130,6 +128,7 @@ hrdetect_process_indel <- function(indel, regions.bed, ref, fasta) {
 #' @name hrdetect_process_sv
 #' @description function to process SV file
 hrdetect_process_sv <- function(jabba, sv) {
+    message("Processing SV input")
     if (!(identical(jabba, "/dev/null") && identical(sv, "/dev/null"))) {
         fe.jabba <- !file.not.exists(jabba)
         fe.sv <- !file.not.exists(sv)
@@ -189,6 +188,7 @@ hrdetect_process_sv <- function(jabba, sv) {
 #' @description function to process CNV file
 hrdetect_process_cnv <- function(jabba, hets) {
     if (file.exists(jabba) && !identical(jabba, "/dev/null")) {
+        message("Processing CNV input")
         jabd.simple <- readRDS(jabba)
         if(inherits(jabd.simple, "gGraph")) {
             jabd.simple <- gg2jab(jabd.simple)
@@ -249,6 +249,7 @@ hrdetect_process_cnv <- function(jabba, hets) {
                 hets.gr <- readRDS(paste(dirname(jabba), "hets.gr.rds", sep = "/"))
             }
             if (!all(c('asegstats', 'aadj', 'agtrack') %in% names(jabd.simple))) {
+                message("Running allelic JaBbA...")
                 jaba <- tryCatch(JaBbA:::jabba.alleles(jabd.simple, hets.gr, verbose = TRUE, uncoupled = TRUE)[c('asegstats', 'aadj', 'agtrack')], error = function(e) NULL)
                 if (!is.null(jaba)) {
                     jabd.simple <- c(jabd.simple, jaba)

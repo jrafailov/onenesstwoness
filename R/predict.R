@@ -7,22 +7,22 @@
 #' @param sv Path to the SV file (vcf/rds)
 #' @param mask Path to the mask file
 #' @param hets Path to the hets file
-#' @param genome enum of hg19/hg38/mm10/canFam3
-#' @param ref Path to the reference genome
+#' @param genome Path to the reference genome (fasta)
+#' @param ref enum of hg19/hg38/mm10/canFam3
 #' @param outdir Path to the output directory
 #' @param save Logical indicating whether to save the results
 #' @export
 #' @importFrom signature.tools.lib HRDetect_pipeline
 run_hrdetect <- function(snv,
-    indel,
-    jabba,
-    sv,
-    mask,
     hets,
+    jabba = "/dev/null",
+    indel = snv,
+    sv = "/dev/null",
+    mask = system.file("extdata", "hg19_mask.rds", package = "onenesstwoness"),
     genome,
-    ref,
+    ref = "hg19",
     save = TRUE,
-    outdir) {
+    outdir = "./") {
     
     message("Running HRDetect")
 
@@ -84,12 +84,14 @@ run_hrdetect <- function(snv,
     sv.tmp <- hrdetect_process_sv(jabba, sv)
     cnv.tmp <- hrdetect_process_cnv(jabba, hets)
 
+    #browser()
+
     ######### run pipeline ##########
     res <- signature.tools.lib::HRDetect_pipeline(SNV_vcf_files = snv.tmp,
                                                 Indels_vcf_files = indel.tmp,
                                                 SV_bedpe_files = sv.tmp,
                                                 CNV_tab_files = cnv.tmp,
-                                                genome.v = genome, SNV_signature_version = 'COSMICv3.2')
+                                                genome.v = ref, SNV_signature_version = 'COSMICv3.2')
     if(save){
         saveRDS(res, file.path(outdir, 'hrdetect_results.rds'))
         if (NROW(res$hrdetect_output) > 0)
@@ -138,25 +140,24 @@ run_hrdetect <- function(snv,
 #' @importFrom GxG homeology.wrapper
 #' @export
 predict_B1_2 <- function(complex,
+    snv = NULL,
+    hets = NULL,
     homeology = NULL,  
     homeology_stats = NULL, 
     hrdetect_results = NULL,
-    overwrite = TRUE,
-    snv = NULL,
-    indel = NULL,
-    jabba = NULL,
+    indel = snv,
     sv = NULL,
-    mask = NULL,
-    hets = NULL,
+    mask = system.file("extdata", "hg19_mask.rds", package = "onenesstwoness"),
     genome = "~/DB/GATK/human_g1k_v37.fasta",
     width = 200,
     pad = 20,
     thresh = 1,
     stride = 8,
-    ref = NULL,
+    ref = "hg19",
     model = system.file("model", "stash.retrained.model.rds", package = "onenesstwoness"),
     outdir = "./",
     cores = 4,
+    overwrite = TRUE,
     save = TRUE) {
     
     # TODO FIXME: fix the guardlrail for import read in 
@@ -225,14 +226,12 @@ predict_B1_2 <- function(complex,
             flip = FALSE,
             genome = genome,
             cores = cores,
-            outdir = "./"
+            outdir = outdir
         )
         jhom <- hom.run[[3]]
         jhom_stats <- hom.run[[2]]
     }
 
-    
-    
     expl_variables$DUP_1kb_100kb <- 0
     expl_variables$ihdel = 0
     is_jhom_nonempty = NROW(jhom) > 0
@@ -289,9 +288,7 @@ predict_B1_2 <- function(complex,
         message("Running HRDetect")
         res <- run_hrdetect(snv = snv,
                 indel = indel,
-                jabba = jabba,
-                sv = sv,
-                mask = mask,
+                jabba = complex,
                 hets = hets,
                 genome = genome,
                 ref = ref,
